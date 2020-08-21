@@ -3,6 +3,8 @@ package net.magoa.trashcal;
 import net.fortuna.ical4j.data.CalendarOutputter;
 import net.fortuna.ical4j.model.Calendar;
 import net.fortuna.ical4j.model.Date;
+import net.fortuna.ical4j.model.TimeZone;
+import net.fortuna.ical4j.model.TimeZoneRegistryFactory;
 import net.fortuna.ical4j.model.component.VEvent;
 import net.fortuna.ical4j.model.property.CalScale;
 import net.fortuna.ical4j.model.property.Description;
@@ -28,6 +30,9 @@ public class HerneParser {
 
     private static final DateTimeFormatter MONTH_GERMAN = DateTimeFormatter.ofPattern("MMMM", Locale.GERMAN);
     private static final UidGenerator UID_GENERATOR = new RandomUidGenerator();
+    private static final TimeZone TIMEZONE = TimeZoneRegistryFactory.getInstance()
+            .createRegistry()
+            .getTimeZone(ZoneId.systemDefault().getId());
 
     public static void main(String[] args) {
         try {
@@ -68,17 +73,19 @@ public class HerneParser {
         return result;
     }
 
-    private static void write(List<TrashEntry> entries, String  path) throws IOException {
+    private static void write(List<TrashEntry> entries, String path) throws IOException {
         var ical = new Calendar();
-        ical.getProperties().add(new ProdId("-//Abfallkalender"));
+        ical.getProperties().add(new ProdId("-//Abfallkalender//Herne"));
         ical.getProperties().add(Version.VERSION_2_0);
         ical.getProperties().add(CalScale.GREGORIAN);
+        ical.getProperties().add(TIMEZONE.getVTimeZone().getTimeZoneId());
 
         for (TrashEntry entry : entries) {
-            var date = new Date(java.util.Date.from(entry.getDate().atStartOfDay(ZoneId.systemDefault()).toInstant()));
-            var event = new VEvent(date, entry.getType().name());
+            var date = new Date(java.util.Date.from(entry.getDate().atStartOfDay(ZoneId.of("UTC")).toInstant()));
+            var event = new VEvent(date, date, entry.getType().getDescription());
             event.getProperties().add(new Description(entry.getType().getDescription()));
             event.getProperties().add(UID_GENERATOR.generateUid());
+            event.getProperties().add(TIMEZONE.getVTimeZone().getTimeZoneId());
             ical.getComponents().add(event);
         }
 
